@@ -63,10 +63,13 @@ jobs:
           npx cap sync
 
       - name: Build Android APK with Gradle
+        env:
+          _JAVA_OPTIONS: "-Xmx2048m -Xms512m"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2048m -Dorg.gradle.daemon=false"
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload Compiled APK Artifact
         uses: actions/upload-artifact@v4
