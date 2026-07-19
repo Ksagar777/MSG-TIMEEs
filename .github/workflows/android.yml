@@ -1,0 +1,75 @@
+name: Build Android APK (Free Cloud Compiler)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Android Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          # cache: 'npm' # Commented out to prevent "lock file not found" error if package-lock.json is missing
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Build React Production Assets
+        run: npm run build
+
+      - name: Install Capacitor CLI & Android Platform
+        run: |
+          npm install @capacitor/core @capacitor/cli
+          npm install @capacitor/android
+
+      - name: Generate Capacitor Configuration
+        run: |
+          cat <<EOF > capacitor.config.ts
+          import { CapacitorConfig } from '@capacitor/cli';
+          const config: CapacitorConfig = {
+            appId: 'com.sagar.schoolbell',
+            appName: 'Sagar School Bell',
+            webDir: 'dist',
+            bundledWebRuntime: false,
+            server: {
+              cleartext: true,
+              allowNavigation: ['schoolbell.local', '192.168.1.*']
+            },
+            android: {
+              allowMixedContent: true
+            }
+          };
+          export default config;
+          EOF
+
+      - name: Add Android Native Project & Sync
+        run: |
+          npx cap add android || true
+          npx cap sync
+
+      - name: Build Android APK with Gradle
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Compiled APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SagarSchoolBell-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
